@@ -1,0 +1,80 @@
+﻿<!DOCTYPE html>
+<html>
+	<head>
+		<title>Zeichnen auf der Canvas</title>
+		<style>	
+			body, html{padding:0; margin:0;}
+		</style>
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+	</head>	
+	<body>
+		<canvas id="myCanvas" width="1000" height="1000"></canvas>
+		<script src="Dauvas.js"></script>
+		
+		<script>
+			fullScreen();
+			var balls=[];			//Array mit allen Partikeln
+			var dt=1;				// simulation step
+			var nFrames=10;		// Anzahl Simulationsschritte
+			var frame=0;			
+			var tsim=50;			// Simulationschritt in ms	
+
+			console.log(xmax, ymax);
+			setFillColor("#FF9999");				
+			fillRect(0,0,xmax,ymax);
+
+		
+
+			class ball{
+				constructor(x,y,vx,vy,r, fixed){
+					this.x=x;
+					this.y=y;
+					this.vx=vx;
+					this.vy=vy;
+					this.r=r
+					this.fixed=fixed; 		// true or false
+				}
+			}
+			
+			init();										// hinter der class
+			var animation=setInterval(run, tsim);
+
+
+			function run(){
+				show();
+				step();
+				frame++;
+				console.log(frame)
+				if (frame>=nFrames) clearInterval(animation)
+			}
+
+			function show(){
+				setFillColor("blue");
+				for (var b of balls){
+					fillCircle(b.x, b.y, b.r);
+				}
+			}
+
+			
+			function step(){
+				for (var b of balls){
+					b.x+=b.vx*dt;
+					b.y+=b.vy*dt;
+				}
+			}
+			
+			function init(){
+				var b= new ball(300,200,0,10,20,false);
+				balls.push(b);
+				var b= new ball(200,400,0,10,20,false);
+				balls.push(b);
+				console.log(balls);
+			}
+
+		</script>
+			
+		</body>
+</html>
+
+
+

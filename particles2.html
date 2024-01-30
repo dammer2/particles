@@ -1,0 +1,116 @@
+﻿<!DOCTYPE html>
+<html>
+	<head>
+		<title>Zeichnen auf der Canvas</title>
+		<style>	
+			body, html{padding:0; margin:0;}
+		</style>
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+	</head>	
+	<body>
+		<canvas id="myCanvas" width="1000" height="1000"></canvas>
+		<script src="Dauvas.js"></script>
+		
+		<script>
+			//fullScreen();
+			var balls=[];			//Array mit allen Partikeln
+			var dt=0.02;				// simulation step "Physik"
+			var nFrames=50;			// Anzahl Simulationsschritte
+			var frame=0;			// Simulationsschritte		
+			var tsim=50;			// Simulationschritt in ms	
+			var a=50;				//F=bb*a^6/r^7(1-a^6/r^6)	Lennard Jones Kraft, 0 bei a=r
+			var bb=1000000;			// 1h Fehlersuche, da auch ein Ball "B"	hiess...
+
+			console.log(xmax, ymax);
+				
+
+			class ball{
+				constructor(x,y,vx,vy,r,m, fixed){
+					this.x=x;
+					this.y=y;
+					this.vx=vx;
+					this.vy=vy;
+					this.r=r
+					this.m=m; 				//mass
+					this.fixed=fixed; 		// true or false
+				}
+
+				distance(b2){
+					return Math.sqrt((this.x-b2.x)**2+(this.y-b2.y)**2);
+				}
+				force(b2){
+					let r=this.distance(b2);
+					let f=bb*a**6/r**7*(1-a**6/r**6);		//Betrag
+					let dx=this.x-b2.x;
+					let dy=this.y-b2.y;
+					let fx=f*dx/r;							//Komponenten
+					let fy=f*dy/r;
+					return [fx,fy];
+				}	
+
+			}
+			
+			init();										// hinter der class
+			var animation=setInterval(run, tsim);
+
+
+			function run(){
+				show();
+				step();
+				frame++;
+				console.log(frame, balls[0].force(balls[1])[0],balls[0].force(balls[1])[1]);
+				if (frame>=nFrames) clearInterval(animation);
+			}
+
+			function show(){
+				setFillColor("#FF9999");				
+				fillRect(0,0,xmax,ymax);						// besser mit background
+				setFillColor("blue");
+				for (var b of balls){
+					fillCircle(b.x, b.y, b.r);
+				}
+			}
+
+			
+			function step(){
+				//let balls_old=JSON.parse(JSON.stringify(balls)); 			//deep copy, slow?
+				let ballsOldPos=[];
+				for (let b of balls){
+					ballsOldPos.push(b);
+					}								
+				let f=ballsOldPos[0].force(ballsOldPos[1]);						// erst mal nur 2 Bälle
+				let a0x=f[0]/balls[0].m;
+				let a0y=f[1]/balls[0].m;									//leider nur kompoenenweise
+				let a1x=f[0]/balls[1].m;
+				let a1y=f[1]/balls[1].m;
+				console.log("as",a0x,a0y);
+				balls[0].vx+=a0x*dt;
+				balls[0].vy+=a0y*dt;
+				balls[1].vx-=a1x*dt;
+				balls[1].vy-=a1y*dt;
+
+				balls[0].x-=ballsOldPos[0].vx*dt;
+				balls[0].y-=ballsOldPos[0].vy*dt;
+				balls[1].x-=ballsOldPos[1].vx*dt;
+				balls[1].y-=ballsOldPos[1].vy*dt;
+				/*for (var b of balls){
+					b.x+=b.vx*dt;
+					b.y+=b.vy*dt;
+				}*/
+			}
+			
+			function init(){
+				var b= new ball(300,400,0,0,20,1,false);
+				balls.push(b);
+				b= new ball(400,400,0,0,20,1,false);
+				balls.push(b);
+				console.log("nach init",balls);
+			}
+
+		</script>
+			
+		</body>
+</html>
+
+
+

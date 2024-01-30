@@ -1,0 +1,194 @@
+﻿<!DOCTYPE html>
+<!-- Simulation by DaU, 12.11.2023, Zusatzdatei Dauvas.js erforDerlich, F5 Neustart,use arrow keys, space, q, t-->
+<html>
+	<head>
+		<title>Zeichnen auf der Canvas</title>
+		<style>	
+			body, html{padding:0; margin:0;}
+		</style>
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+	</head>	
+	<body>
+		<canvas id="myCanvas" width="1000" height="1000"></canvas>
+		<script src="Dauvas.js"></script>
+		
+		<script>
+			fullScreen();
+			document.addEventListener("keydown", doKeyDown, false);
+			var balls=[];				//Array mit allen Partikeln
+			var dt=0.00003;				// simulation step "Physik", Falls zu gross, sehr heikel... 0.00005!
+			var frame=0;				// Simulationsschritte		
+			var tsim=5;					// Simulationschritt in ms für die Anzeige
+			var frameFilter=3;			// nur jedes .... Bild wird angezeigt	
+			var a=50;					// F=bb*a^6/r^7(1-a^6/r^6)	Lennard Jones Kraft, 0 bei a=r, Variante 4,5 statt 6,7
+			var bb=1000000;				// Kraftparameter, 1h Fehlersuche, da auch ein Ball "b"	hiess..., 
+			var g=0;					// Fallbeschleunigung z.B. 10, try 0
+			var k=0.7;					// Mindestabstand in Einheiten von a für init
+			var fmin=0.001;				// Minimale Kraft, Beschleunigung der Simulation
+			var fmax=1000000;			// Verzweifelung... bessere Stabilität
+			var v0=200;					// maximale Anfangsschwindigkeit aller Bälle
+			var nBallsMax=150;			// Anzahl Bälle
+			var p=0.1					// Anteil grosser, schwererer Bälle
+			var dissipation=1; 			// Energieverlust, try e.g. 0.999999;
+			//var dissFaktor=1.0000001;	// zur Erhöhung (>1) oder Erniedrigung der Temperatur, press "Pfeil up" or "down" 
+			var T;						// Mass für Temperatur
+			var textON=true;			// Soll oben links eine Anzeige sein?
+			var isRunning=true;		// anghalten mit Space Taste
+			console.log(xmax, ymax);
+
+			class ball{
+				constructor(x,y,vx,vy,r,m,fixed,color){
+					this.x=x;
+					this.y=y;
+					this.vx=vx;
+					this.vy=vy;
+					this.r=r				// Radius
+					this.m=m; 				//mass
+					this.fixed=fixed; 		// true or false
+					this.color=color;
+				}
+
+				distance(b2){
+					return Math.sqrt((this.x-b2.x)**2+(this.y-b2.y)**2);
+				}
+				force(b2){
+					let r=this.distance(b2);
+					let f=bb*a**6/r**7*(1-a**6/r**6);		//Betrag
+					//let f=bb*a**4/r**5*(1-a**4/r**4);		// geht auch, aber schneller
+					if (Math.abs(f)<fmin) f=0;				// beschleugigt Simulation
+					if (f>fmax) f=fmax;
+					if (f<-fmax) f=-fmax;
+					let dx=this.x-b2.x;						// Hilfsgrösse, um auf f die Komponenten zu machen
+					let dy=this.y-b2.y;
+					let fx=f*dx/r;							//Komponenten
+					let fy=f*dy/r;
+					return [fx,fy];							// Vektor
+				}
+			}
+			
+			init();											// muss hinter der class stehen
+			var animation=setInterval(run, tsim);			// startet Simulation
+			
+			function run(){									// Main simulation Loop
+				show();
+				step();
+				frame++;
+			}
+
+			function show(){
+				if (frame%frameFilter==0){							// nicht jeder Frame mus angezeigt werden
+					//setFillColor("#FF9999");
+					setFillColor("#FFFFFF");					
+					fillRect(0,0,xmax,ymax);						// besser mit background
+					for (var b of balls){
+						setFillColor(b.color);
+						fillCircle(b.x, b.y, b.r);
+					}}
+					setFillColor("#000");
+					if (textON)
+						drawText(20,50,"g="+g+" Temperatur="+Math.round(100*T), 20);
+			}
+
+			function step(){
+				if (isRunning){
+				let ballsOldPos=[];									//"neue Generation" wird aus der alten berechnet
+				let a0x, a0y, a1x, a1y;								// Beschleunigungen von 2 Partikeln							
+				for (let b of balls){
+					ballsOldPos.push(b);
+					}	
+				for (let i=0; i<balls.length; i++){					// jeder mit jedem...
+					for (let j=i+1; j<balls.length; j++){			// jeder mit jedem...
+						if(balls[i].fixed && balls[j].fixed)		// fixierte Balls am Rand werden nicht bewegt
+							continue;
+						let f=ballsOldPos[i].force(ballsOldPos[j]);		// Zwischenkraft (Vektor)
+						if (!balls[i].fixed)	{						// nur unfixete Balls werden bewegt
+							 a0x=f[0]/balls[i].m;						// F=m*a
+							 a0y=f[1]/balls[i].m+g;}					// hier kommt die Schwerkraft dazu
+						else {
+							 a0x=0; 
+							 a0y=0;}	
+						if (!balls[j].fixed)	{				
+							 a1x=f[0]/balls[j].m;
+							 a1y=f[1]/balls[j].m+g;}
+						else {
+							 a1x=0;
+							 a1y=0;}									
+				
+						balls[i].vx=(balls[i].vx-a0x*dt)*dissipation;							// neue Geschwindigkeit beider Bälle	
+						balls[i].vy=(balls[i].vy-a0y*dt)*dissipation;
+						balls[j].vx=(balls[j].vx+a1x*dt)*dissipation;
+						balls[j].vy=(balls[j].vy+a1y*dt)*dissipation;
+						balls[i].x=ballsOldPos[i].x+balls[i].vx*dt;		// neue Positon beider Bälle		
+						balls[i].y=ballsOldPos[i].y+balls[i].vy*dt;
+						balls[j].x=ballsOldPos[j].x+balls[j].vx*dt;
+						balls[j].y=ballsOldPos[j].y+balls[j].vy*dt;
+					} // j
+				} // i
+				// Mass für Temperatur berechnen (durchschnittliches v^2)
+				let sum=0;
+				for (let b of balls){
+					sum+=b.vx**2+b.vy**2;
+				} 
+				T=Math.sqrt(sum)/balls.length;
+				dissipation=1;
+			} //isRunning
+			}
+			
+			function init(){
+				let b;
+				for (let x=0; x<xmax; x+=40){							// fixe Bälle am oberen und unteren Rand
+					b= new ball(x,0,0,0,20,1,true,"black");		
+					balls.push(b);		
+					b= new ball(x,ymax,0,0,20,1,true,"black");		
+					balls.push(b);}
+				for (let y=0; y<ymax; y+=40){							// fixe Bälle am linke und rechten Rand		
+					b= new ball(0,y,0,0,20,1,true,"black");		
+					balls.push(b);
+					b= new ball(xmax,y,0,0,20,1,true,"black");		
+					balls.push(b);}	
+					
+				let nBalls=0;
+				b= new ball(xmax/2,ymax/2,0,0,20,3,false,"red");		
+				balls.push(b);
+				for (let i=0; i<nBallsMax; i++){						// Erzeugung der Bälle a Anfang
+					let x=Math.random()*(xmax-200)+100;
+					let y=Math.random()*(ymax-200)+100;
+					let tooClose=false;									// es wird verhindert, dass 2 Bälle zu nah sind
+					for (let j=0; j<balls.length; j++){
+						if((x-balls[j].x)**2+(y-balls[j].y)**2<(k*a)**2){
+							tooClose=true;
+						}
+					}
+					if (tooClose==false){
+						if (Math.random()<p)							// Anteil grosser Bälle						
+							b= new ball(x,y,Math.random()*v0-v0/2,Math.random()*v0-v0/2,20,3,false,"green");		//gross
+						else
+							b= new ball(x,y,Math.random()*v0-v0/2,Math.random()*v0-v0/2,10,1,false,"green");		//klein
+						balls.push(b);
+						nBalls++; }
+				}
+				console.log(nBalls+" Balls.")
+				
+			}
+
+			function doKeyDown(evt){
+				var key=evt.keyCode;
+				console.log(key);
+				if(key==84)  //T
+					textON=!textON;
+				if(key==39)  //G 
+					g=g+1;
+				if(key==37)  //G 
+					g=g-1;	
+				if(key==40)  // Pfeil up 
+					dissipation=0.999;						// kälter
+				if(key==38)  //Pfeil runter
+					dissipation=1.0001;						// wärme
+				if(key==81)  //q quit
+					clearInterval(animation)
+				if(key==32)  //space halt
+					isRunning=!isRunning;
+			}
+		</script>
+		</body>
+</html>
